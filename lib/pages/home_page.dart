@@ -5,6 +5,8 @@ import 'package:track_health/blocs/auth/auth_bloc.dart';
 import 'package:track_health/models/user_model.dart';
 import 'package:track_health/models/meal_log.dart';
 import 'package:intl/intl.dart';
+import 'package:track_health/theme/app_colors.dart';
+import 'package:track_health/models/meal_type.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,132 +18,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _nameController = TextEditingController();
   final _caloriesController = TextEditingController();
-
-  void _showAddMealDialog(BuildContext context, String userId) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add Meal',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Meal Name',
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _caloriesController,
-              decoration: const InputDecoration(
-                labelText: 'Calories',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () async {
-                  if (_nameController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a meal name')),
-                    );
-                    return;
-                  }
-
-                  if (_caloriesController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter calories')),
-                    );
-                    return;
-                  }
-
-                  try {
-                    final calories = int.parse(_caloriesController.text);
-                    if (calories <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Please enter a valid calorie amount')),
-                      );
-                      return;
-                    }
-
-                    final mealLog = MealLog(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      userId: userId,
-                      name: _nameController.text.trim(),
-                      calories: calories,
-                      timestamp: DateTime.now(),
-                    );
-
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('meal_logs')
-                          .doc(mealLog.id)
-                          .set(mealLog.toMap());
-
-                      if (mounted) {
-                        Navigator.pop(context);
-                        _nameController.clear();
-                        _caloriesController.clear();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Meal added successfully')),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content:
-                                  Text('Error adding meal: ${e.toString()}')),
-                        );
-                      }
-                    }
-                  } on FormatException {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content:
-                              Text('Please enter a valid number for calories')),
-                    );
-                  }
-                },
-                child: const Text('Add Meal'),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
+  MealType _selectedMealType = MealType.snack;
 
   @override
   void dispose() {
@@ -150,25 +27,273 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  void _showAddMealDialog(BuildContext context, String userId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Add Meal',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color:
+                              isDark ? AppColors.textLight : AppColors.textDark,
+                        ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close,
+                        color:
+                            isDark ? AppColors.textLight : AppColors.textDark),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<MealType>(
+                value: _selectedMealType,
+                decoration: InputDecoration(
+                  labelText: 'Meal Type',
+                  labelStyle: TextStyle(
+                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.restaurant_menu,
+                    color:
+                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  ),
+                ),
+                style: TextStyle(
+                  color: isDark ? AppColors.textLight : AppColors.textDark,
+                ),
+                dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                items: MealType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.displayName),
+                  );
+                }).toList(),
+                onChanged: (MealType? newValue) {
+                  if (newValue != null) {
+                    setState(() => _selectedMealType = newValue);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Meal Name',
+                  labelStyle: TextStyle(
+                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.restaurant_menu,
+                    color:
+                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  ),
+                ),
+                style: TextStyle(
+                  color: isDark ? AppColors.textLight : AppColors.textDark,
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _caloriesController,
+                decoration: InputDecoration(
+                  labelText: 'Calories',
+                  labelStyle: TextStyle(
+                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppColors.darkPrimary
+                          : AppColors.lightPrimary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.local_fire_department,
+                    color:
+                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  ),
+                ),
+                style: TextStyle(
+                  color: isDark ? AppColors.textLight : AppColors.textDark,
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => _addMeal(context, userId),
+                  child: const Text('Add Meal'),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addMeal(BuildContext context, String userId) async {
+    if (_nameController.text.isEmpty) {
+      _showError(context, 'Please enter a meal name');
+      return;
+    }
+
+    if (_caloriesController.text.isEmpty) {
+      _showError(context, 'Please enter calories');
+      return;
+    }
+
+    try {
+      final calories = int.parse(_caloriesController.text);
+      if (calories <= 0) {
+        _showError(context, 'Please enter a valid calorie amount');
+        return;
+      }
+
+      final mealLog = MealLog(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        name: _nameController.text.trim(),
+        calories: calories,
+        timestamp: DateTime.now(),
+        type: _selectedMealType,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('meal_logs')
+          .doc(mealLog.id)
+          .set(mealLog.toMap());
+
+      if (mounted) {
+        Navigator.pop(context);
+        _nameController.clear();
+        _caloriesController.clear();
+        _showSuccess(context, 'Meal added successfully');
+      }
+    } catch (e) {
+      _showError(context, 'Error adding meal: ${e.toString()}');
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccess(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Health Tracker'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthBloc>().add(SignOutRequested());
-            },
-          ),
-        ],
-      ),
-      body: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, state) {
-          if (state is Authenticated) {
-            return StreamBuilder<DocumentSnapshot>(
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is! Authenticated) return const SizedBox.shrink();
+
+        return Scaffold(
+          body: SafeArea(
+            child: StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .doc(state.user.uid)
@@ -178,321 +303,303 @@ class _HomePageState extends State<HomePage> {
                   return Center(child: Text('Error: ${userSnapshot.error}'));
                 }
 
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                if (!userSnapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 final userData =
                     userSnapshot.data?.data() as Map<String, dynamic>?;
-                if (userData != null) {
-                  final user = UserModel.fromMap(userData);
+                if (userData == null) {
+                  return const Center(child: Text('No user data found'));
+                }
 
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('meal_logs')
-                        .where('userId', isEqualTo: state.user.uid)
-                        .where('timestamp',
-                            isGreaterThanOrEqualTo: DateTime(
-                              DateTime.now().year,
-                              DateTime.now().month,
-                              DateTime.now().day,
-                            ).toIso8601String())
-                        .where('timestamp',
-                            isLessThan: DateTime(
-                              DateTime.now().year,
-                              DateTime.now().month,
-                              DateTime.now().day + 1,
-                            ).toIso8601String())
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
-                    builder: (context, mealSnapshot) {
-                      print('Meal snapshot has data: ${mealSnapshot.hasData}');
-                      print('Meal snapshot error: ${mealSnapshot.error}');
-                      print(
-                          'Connection state: ${mealSnapshot.connectionState}');
+                final user = UserModel.fromMap(userData);
 
-                      int todayCalories = 0;
-                      final meals = <MealLog>[];
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('meal_logs')
+                      .where('userId', isEqualTo: state.user.uid)
+                      .where('timestamp',
+                          isGreaterThanOrEqualTo: DateTime(
+                            DateTime.now().year,
+                            DateTime.now().month,
+                            DateTime.now().day,
+                          ).toIso8601String())
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
+                  builder: (context, mealSnapshot) {
+                    int todayCalories = 0;
+                    final meals = <MealLog>[];
 
-                      if (mealSnapshot.hasData) {
-                        print(
-                            'Number of documents: ${mealSnapshot.data!.docs.length}');
-
-                        for (var doc in mealSnapshot.data!.docs) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          print('Document data: $data');
-
-                          final meal = MealLog.fromMap(data, doc.id);
-                          print(
-                              'Parsed meal: ${meal.name} - ${meal.calories} cal at ${meal.timestamp}');
-
-                          todayCalories += meal.calories;
-                          meals.add(meal);
-                        }
+                    if (mealSnapshot.hasData) {
+                      for (var doc in mealSnapshot.data!.docs) {
+                        final meal = MealLog.fromMap(
+                            doc.data() as Map<String, dynamic>, doc.id);
+                        todayCalories += meal.calories;
+                        meals.add(meal);
                       }
+                    }
 
-                      return CustomScrollView(
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Welcome back,',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall,
-                                  ),
-                                  Text(
-                                    state.user.email ?? 'User',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Card(
-                                    elevation: 4,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Daily Calories',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleLarge,
-                                              ),
-                                              IconButton(
-                                                icon: const Icon(Icons.add),
-                                                onPressed: () =>
-                                                    _showAddMealDialog(context,
-                                                        state.user.uid),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            child: LinearProgressIndicator(
-                                              value: todayCalories /
-                                                  user.dailyCalorieGoal,
-                                              minHeight: 10,
-                                              backgroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary
-                                                  .withOpacity(0.2),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              RichText(
-                                                text: TextSpan(
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .headlineMedium,
-                                                  children: [
-                                                    TextSpan(
-                                                      text: '$todayCalories',
-                                                      style: TextStyle(
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .primary,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text:
-                                                          '/${user.dailyCalorieGoal}',
-                                                      style: TextStyle(
-                                                        color: Theme.of(context)
-                                                            .textTheme
-                                                            .bodyLarge
-                                                            ?.color
-                                                            ?.withOpacity(0.7),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              Text(
-                                                'calories',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium
-                                                    ?.copyWith(
-                                                      color: Theme.of(context)
-                                                          .textTheme
-                                                          .bodyLarge
-                                                          ?.color
-                                                          ?.withOpacity(0.7),
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    "Today's Meals",
-                                    style:
-                                        Theme.of(context).textTheme.titleLarge,
-                                  ),
-                                ],
+                    return CustomScrollView(
+                      slivers: [
+                        SliverAppBar(
+                          floating: true,
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Health Tracker'),
+                              Text(
+                                state.user.email ?? '',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Colors.white70),
                               ),
+                            ],
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: _CalorieCard(
+                              todayCalories: todayCalories,
+                              goalCalories: user.dailyCalorieGoal,
+                              onAddMeal: () =>
+                                  _showAddMealDialog(context, state.user.uid),
                             ),
                           ),
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final meal = meals[index];
-                                return Dismissible(
-                                  key: Key(meal.id),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    color: Colors.red,
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 16),
-                                    child: const Icon(
-                                      Icons.delete,
-                                      color: Colors.white,
-                                    ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverToBoxAdapter(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Today's Meals",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Add Meal'),
+                                  onPressed: () => _showAddMealDialog(
+                                      context, state.user.uid),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.all(16),
+                          sliver: meals.isEmpty
+                              ? const SliverToBoxAdapter(
+                                  child: Center(
+                                    child: Text('No meals logged today'),
                                   ),
-                                  onDismissed: (direction) async {
-                                    try {
-                                      await FirebaseFirestore.instance
-                                          .collection('meal_logs')
-                                          .doc(meal.id)
-                                          .delete();
+                                )
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) => _MealCard(
+                                      meal: meals[index],
+                                      onDelete: () async {
+                                        try {
+                                          await FirebaseFirestore.instance
+                                              .collection('meal_logs')
+                                              .doc(meals[index].id)
+                                              .delete();
+                                          _showSuccess(context,
+                                              'Meal deleted successfully');
+                                        } catch (e) {
+                                          _showError(context,
+                                              'Error deleting meal: ${e.toString()}');
+                                        }
+                                      },
+                                    ),
+                                    childCount: meals.length,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showAddMealDialog(context, state.user.uid),
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
+    );
+  }
+}
 
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Meal deleted'),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                                'Error deleting meal: ${e.toString()}'),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 4),
-                                    child: Card(
-                                      elevation: 2,
-                                      child: ListTile(
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 16, vertical: 8),
-                                        title: Text(
-                                          meal.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              DateFormat('HH:mm')
-                                                  .format(meal.timestamp),
-                                              style: TextStyle(
-                                                color: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.color,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        trailing: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                                .withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            '${meal.calories} cal',
-                                            style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                              childCount: meals.length,
+class _CalorieCard extends StatelessWidget {
+  final int todayCalories;
+  final int goalCalories;
+  final VoidCallback onAddMeal;
+
+  const _CalorieCard({
+    required this.todayCalories,
+    required this.goalCalories,
+    required this.onAddMeal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = todayCalories / goalCalories;
+    final colorScheme = Theme.of(context).colorScheme;
+    final progressColor = progress >= 1
+        ? Colors.red
+        : progress >= 0.8
+            ? Colors.orange
+            : colorScheme.primary;
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Daily Progress',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(color: Colors.black87),
+                        children: [
+                          TextSpan(
+                            text: '$todayCalories',
+                            style: TextStyle(
+                              color: progressColor,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SliverPadding(
-                            padding: EdgeInsets.only(bottom: 80),
+                          TextSpan(
+                            text: ' / $goalCalories',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ],
-                      );
-                    },
-                  );
-                }
-                return const Center(child: Text('No user data found'));
-              },
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final authState = context.read<AuthBloc>().state;
-          if (authState is Authenticated) {
-            _showAddMealDialog(context, authState.user.uid);
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Meal'),
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: onAddMeal,
+                  color: colorScheme.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: colorScheme.primary.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  bool isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+class _MealCard extends StatelessWidget {
+  final MealLog meal;
+  final VoidCallback onDelete;
+
+  const _MealCard({
+    required this.meal,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(meal.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => onDelete(),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.restaurant,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          title: Text(
+            meal.name,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(meal.type.displayName,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  )),
+              Text(DateFormat('HH:mm').format(meal.timestamp)),
+            ],
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${meal.calories} cal',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
