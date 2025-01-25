@@ -8,9 +8,16 @@ import 'package:track_health/pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized successfully'); // Debug print
+  } catch (e) {
+    print('Error initializing Firebase: $e'); // Debug print
+  }
+
   runApp(const MyApp());
 }
 
