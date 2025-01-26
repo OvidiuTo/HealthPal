@@ -7,6 +7,7 @@ import 'package:track_health/models/meal_log.dart';
 import 'package:intl/intl.dart';
 import 'package:track_health/theme/app_colors.dart';
 import 'package:track_health/models/meal_type.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,15 +20,305 @@ class _HomePageState extends State<HomePage> {
   final _nameController = TextEditingController();
   final _caloriesController = TextEditingController();
   MealType _selectedMealType = MealType.snack;
+  final _speechToText = stt.SpeechToText();
+  bool _isListening = false;
+  bool _speechEnabled = false;
+  String _currentField = '';
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    _caloriesController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (error) {
+          print('🎤 Speech recognition error: $error');
+          _resetState();
+        },
+        onStatus: (status) {
+          print('🎤 Speech recognition status: $status');
+          if (status == 'done' || status == 'notListening') {
+            _resetState();
+          }
+        },
+      );
+      print('🎤 Speech recognition initialized: $_speechEnabled');
+    } catch (e) {
+      print('❌ Error initializing speech: $e');
+      _speechEnabled = false;
+    }
+  }
+
+  void _resetState() {
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _currentField = '';
+      });
+      print(
+          '🎤 State reset - isListening: $_isListening, currentField: $_currentField');
+    }
+  }
+
+  Future<void> _startListening(String field) async {
+    print('🎤 Start listening - Current states:'
+        '\n   isListening: ${_speechToText.isListening}'
+        '\n   _currentField: $_currentField'
+        '\n   field: $field');
+    if (!_speechEnabled) {
+      print('❌ Speech recognition not available');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Speech recognition is not available'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_isListening) {
+      await _stopListening();
+      return;
+    }
+
+    try {
+      setState(() {
+        _currentField = field;
+        _isListening = true;
+      });
+      print('🎤 After setState in start:'
+          '\n   isListening: ${_speechToText.isListening}'
+          '\n   _currentField: $_currentField');
+
+      await _speechToText.listen(
+        onResult: (result) => _onSpeechResult(result, field),
+        onSoundLevelChange: (level) {
+          if (mounted) {
+            setState(() {});
+            print('🎤 Sound level change:'
+                '\n   isListening: ${_speechToText.isListening}'
+                '\n   _currentField: $_currentField');
+          }
+        },
+        listenFor: const Duration(seconds: 30),
+        localeId: 'en_US',
+        cancelOnError: true,
+        partialResults: true,
+      );
+      print(
+          '🎤 Listen method completed - isListening: ${_speechToText.isListening}');
+    } catch (e) {
+      print('❌ Error in start listening:'
+          '\n   Error: $e'
+          '\n   isListening: ${_speechToText.isListening}'
+          '\n   _currentField: $_currentField');
+      setState(() {
+        _isListening = false;
+        _currentField = '';
+      });
+    }
+  }
+
+  Future<void> _stopListening() async {
+    print('🎤 Stopping speech');
+    try {
+      await _speechToText.stop();
+      _resetState();
+    } catch (e) {
+      print('❌ Error stopping speech recognition: $e');
+      _resetState();
+    }
+  }
+
+  void _onSpeechResult(result, String field) {
+    print('🎤 Speech result - Current states:'
+        '\n   isListening: ${_speechToText.isListening}'
+        '\n   _currentField: $_currentField'
+        '\n   field: $field');
+
+    final text = result.recognizedWords;
+    print('🎤 Recognized words for $field: $text');
+
+    if (field == 'name') {
+      setState(() => _nameController.text = text);
+    } else if (field == 'calories') {
+      final numericRegex = RegExp(r'\d+');
+      final match = numericRegex.firstMatch(text);
+      if (match != null) {
+        setState(() => _caloriesController.text = match.group(0)!);
+      }
+    }
+
+    // If this is the final result, just reset the state
+    if (result.finalResult) {
+      print('🎤 Final result received');
+      _resetState();
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isDark,
+    required String field,
+    required VoidCallback onStateChange,
+    TextInputType? keyboardType,
+  }) {
+    final isListeningThisField = _isListening && _currentField == field;
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(
+                color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color:
+                      isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color:
+                      isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  width: 2,
+                ),
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+              ),
+            ),
+            style: TextStyle(
+              color: isDark ? AppColors.textLight : AppColors.textDark,
+            ),
+            keyboardType: keyboardType,
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: () async {
+            if (_isListening) {
+              await _stopListening();
+            } else {
+              await _startListening(field);
+            }
+            onStateChange();
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
+          ),
+          icon: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isListeningThisField
+                  ? AppColors.darkPrimary.withOpacity(0.2)
+                  : Colors.transparent,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  isListeningThisField ? Icons.mic : Icons.mic_none,
+                  color: isListeningThisField
+                      ? Colors.red
+                      : (isDark ? AppColors.textLight : AppColors.textDark),
+                  size: isListeningThisField ? 24 : 20,
+                ),
+                if (isListeningThisField)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.red,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMealTypeField(bool isDark, StateSetter setModalState) {
+    return DropdownButtonFormField<MealType>(
+      value: _selectedMealType,
+      decoration: InputDecoration(
+        labelText: 'Meal Type',
+        labelStyle: TextStyle(
+          color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+            width: 2,
+          ),
+        ),
+        prefixIcon: Icon(
+          Icons.category,
+          color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+        ),
+      ),
+      style: TextStyle(
+        color: isDark ? AppColors.textLight : AppColors.textDark,
+      ),
+      dropdownColor:
+          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      items: MealType.values.map((type) {
+        return DropdownMenuItem(
+          value: type,
+          child: Text(type.displayName),
+        );
+      }).toList(),
+      onChanged: (MealType? newValue) {
+        if (newValue != null) {
+          setModalState(() => _selectedMealType = newValue);
+        }
+      },
+    );
   }
 
   void _showAddMealDialog(BuildContext context, String userId) {
+    // Reset values when opening the modal
+    _nameController.clear();
+    _caloriesController.clear();
+    _selectedMealType = MealType.snack;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -35,169 +326,56 @@ class _HomePageState extends State<HomePage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Container(
+        builder: (context, setModalState) => Container(
           decoration: BoxDecoration(
-            color: isDark ? AppColors.cardDark : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+            color:
+                isDark ? AppColors.darkBackground : AppColors.lightBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 20,
-            right: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            top: 16,
+            left: 16,
+            right: 16,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Add Meal',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color:
-                              isDark ? AppColors.textLight : AppColors.textDark,
-                        ),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                   IconButton(
-                    icon: Icon(Icons.close,
-                        color:
-                            isDark ? AppColors.textLight : AppColors.textDark),
+                    icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
-              DropdownButtonFormField<MealType>(
-                value: _selectedMealType,
-                decoration: InputDecoration(
-                  labelText: 'Meal Type',
-                  labelStyle: TextStyle(
-                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                      width: 2,
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.restaurant_menu,
-                    color:
-                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
-                  ),
-                ),
-                style: TextStyle(
-                  color: isDark ? AppColors.textLight : AppColors.textDark,
-                ),
-                dropdownColor: isDark ? AppColors.cardDark : Colors.white,
-                items: MealType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.displayName),
-                  );
-                }).toList(),
-                onChanged: (MealType? newValue) {
-                  if (newValue != null) {
-                    setState(() => _selectedMealType = newValue);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
+              _buildTextField(
                 controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Meal Name',
-                  labelStyle: TextStyle(
-                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                      width: 2,
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.restaurant_menu,
-                    color:
-                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
-                  ),
-                ),
-                style: TextStyle(
-                  color: isDark ? AppColors.textLight : AppColors.textDark,
-                ),
-                textCapitalization: TextCapitalization.sentences,
+                label: 'Meal Name',
+                icon: Icons.restaurant_menu,
+                isDark: isDark,
+                field: 'name',
+                onStateChange: () => setModalState(() {}),
               ),
               const SizedBox(height: 16),
-              TextField(
+              _buildMealTypeField(isDark, setModalState),
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: _caloriesController,
-                decoration: InputDecoration(
-                  labelText: 'Calories',
-                  labelStyle: TextStyle(
-                    color: isDark ? AppColors.textLight.withOpacity(0.7) : null,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppColors.darkPrimary
-                          : AppColors.lightPrimary,
-                      width: 2,
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.local_fire_department,
-                    color:
-                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
-                  ),
-                ),
-                style: TextStyle(
-                  color: isDark ? AppColors.textLight : AppColors.textDark,
-                ),
+                label: 'Calories',
+                icon: Icons.local_fire_department,
+                isDark: isDark,
+                field: 'calories',
                 keyboardType: TextInputType.number,
+                onStateChange: () => setModalState(() {}),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -219,7 +397,16 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      // Reset values when closing the modal
+      _nameController.clear();
+      _caloriesController.clear();
+      _selectedMealType = MealType.snack;
+      // Also reset speech recognition state if it's active
+      if (_isListening) {
+        _stopListening();
+      }
+    });
   }
 
   Future<void> _addMeal(BuildContext context, String userId) async {
@@ -436,6 +623,14 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _speechToText.cancel();
+    _nameController.dispose();
+    _caloriesController.dispose();
+    super.dispose();
   }
 }
 
