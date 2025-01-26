@@ -640,362 +640,354 @@ class _HomePageState extends State<HomePage> {
         if (state is! Authenticated) return const SizedBox.shrink();
 
         return Scaffold(
-          body: SafeArea(
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(state.user.uid)
-                  .snapshots(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.hasError) {
-                  return Center(child: Text('Error: ${userSnapshot.error}'));
-                }
+          body: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(state.user.uid)
+                .snapshots(),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.hasError) {
+                return Center(child: Text('Error: ${userSnapshot.error}'));
+              }
 
-                if (!userSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+              if (!userSnapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                final userData =
-                    userSnapshot.data?.data() as Map<String, dynamic>?;
-                if (userData == null) {
-                  return const Center(child: Text('No user data found'));
-                }
+              final userData =
+                  userSnapshot.data?.data() as Map<String, dynamic>?;
+              if (userData == null) {
+                return const Center(child: Text('No user data found'));
+              }
 
-                final user = UserModel.fromMap(userData);
+              final user = UserModel.fromMap(userData);
 
-                return StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('meal_logs')
-                      .where('userId', isEqualTo: state.user.uid)
-                      .where('timestamp',
-                          isGreaterThanOrEqualTo: DateTime(
-                            DateTime.now().year,
-                            DateTime.now().month,
-                            DateTime.now().day,
-                          ).toIso8601String())
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-                  builder: (context, mealSnapshot) {
-                    int todayCalories = 0;
-                    final meals = <MealLog>[];
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('meal_logs')
+                    .where('userId', isEqualTo: state.user.uid)
+                    .where('timestamp',
+                        isGreaterThanOrEqualTo: DateTime(
+                          DateTime.now().year,
+                          DateTime.now().month,
+                          DateTime.now().day,
+                        ).toIso8601String())
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, mealSnapshot) {
+                  int todayCalories = 0;
+                  final meals = <MealLog>[];
 
-                    if (mealSnapshot.hasData) {
-                      for (var doc in mealSnapshot.data!.docs) {
-                        final meal = MealLog.fromMap(
-                            doc.data() as Map<String, dynamic>, doc.id);
-                        todayCalories += meal.calories;
-                        meals.add(meal);
-                      }
+                  if (mealSnapshot.hasData) {
+                    for (var doc in mealSnapshot.data!.docs) {
+                      final meal = MealLog.fromMap(
+                          doc.data() as Map<String, dynamic>, doc.id);
+                      todayCalories += meal.calories;
+                      meals.add(meal);
                     }
+                  }
 
-                    return StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('activity_logs')
-                          .where('userId', isEqualTo: state.user.uid)
-                          .where('timestamp',
-                              isGreaterThanOrEqualTo: DateTime(
-                                DateTime.now().year,
-                                DateTime.now().month,
-                                DateTime.now().day,
-                              ).toIso8601String())
-                          .where('timestamp',
-                              isLessThan: DateTime(
-                                DateTime.now().year,
-                                DateTime.now().month,
-                                DateTime.now().day + 1,
-                              ).toIso8601String())
-                          .orderBy('timestamp', descending: true)
-                          .snapshots(),
-                      builder: (context, activitySnapshot) {
-                        int todayMinutes = 0;
-                        int todayCaloriesBurned = 0;
-                        final activities = <ActivityLog>[];
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('activity_logs')
+                        .where('userId', isEqualTo: state.user.uid)
+                        .where('timestamp',
+                            isGreaterThanOrEqualTo: DateTime(
+                              DateTime.now().year,
+                              DateTime.now().month,
+                              DateTime.now().day,
+                            ).toIso8601String())
+                        .where('timestamp',
+                            isLessThan: DateTime(
+                              DateTime.now().year,
+                              DateTime.now().month,
+                              DateTime.now().day + 1,
+                            ).toIso8601String())
+                        .orderBy('timestamp', descending: true)
+                        .snapshots(),
+                    builder: (context, activitySnapshot) {
+                      int todayMinutes = 0;
+                      int todayCaloriesBurned = 0;
+                      final activities = <ActivityLog>[];
 
-                        if (activitySnapshot.hasError) {
+                      if (activitySnapshot.hasError) {
+                        print(
+                            'Activity snapshot error: ${activitySnapshot.error}');
+                      }
+
+                      if (activitySnapshot.hasData) {
+                        print(
+                            'Found ${activitySnapshot.data!.docs.length} activities');
+                        for (var doc in activitySnapshot.data!.docs) {
+                          final activity = ActivityLog.fromMap(
+                              doc.data() as Map<String, dynamic>, doc.id);
                           print(
-                              'Activity snapshot error: ${activitySnapshot.error}');
+                              'Activity: ${activity.name}, Minutes: ${activity.minutes}, Calories: ${activity.caloriesBurned}');
+                          todayMinutes += activity.minutes;
+                          todayCaloriesBurned += activity.caloriesBurned;
+                          activities.add(activity);
                         }
+                        print(
+                            'Total minutes: $todayMinutes, Total calories burned: $todayCaloriesBurned');
+                      }
 
-                        if (activitySnapshot.hasData) {
-                          print(
-                              'Found ${activitySnapshot.data!.docs.length} activities');
-                          for (var doc in activitySnapshot.data!.docs) {
-                            final activity = ActivityLog.fromMap(
-                                doc.data() as Map<String, dynamic>, doc.id);
-                            print(
-                                'Activity: ${activity.name}, Minutes: ${activity.minutes}, Calories: ${activity.caloriesBurned}');
-                            todayMinutes += activity.minutes;
-                            todayCaloriesBurned += activity.caloriesBurned;
-                            activities.add(activity);
-                          }
-                          print(
-                              'Total minutes: $todayMinutes, Total calories burned: $todayCaloriesBurned');
-                        }
-
-                        return CustomScrollView(
-                          slivers: [
-                            SliverAppBar(
-                              floating: true,
-                              title: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      return CustomScrollView(
+                        slivers: [
+                          SliverAppBar(
+                            floating: true,
+                            title: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Health Tracker'),
+                                // Text(
+                                //   state.user.email ?? '',
+                                //   style: Theme.of(context)
+                                //       .textTheme
+                                //       .bodySmall
+                                //       ?.copyWith(color: Colors.white70),
+                                // ),
+                              ],
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
                                 children: [
-                                  const Text('Health Tracker'),
-                                  // Text(
-                                  //   state.user.email ?? '',
-                                  //   style: Theme.of(context)
-                                  //       .textTheme
-                                  //       .bodySmall
-                                  //       ?.copyWith(color: Colors.white70),
-                                  // ),
+                                  _CalorieCard(
+                                    todayCalories: todayCalories,
+                                    goalCalories: user.dailyCalorieGoal,
+                                    onAddMeal: () => _showAddMealDialog(
+                                        context, state.user.uid),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _ActivityCard(
+                                    todayMinutes: todayMinutes,
+                                    todayCaloriesBurned: todayCaloriesBurned,
+                                    onAddActivity: () =>
+                                        _showAddActivityDialog(context),
+                                  ),
                                 ],
                               ),
                             ),
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  children: [
-                                    _CalorieCard(
-                                      todayCalories: todayCalories,
-                                      goalCalories: user.dailyCalorieGoal,
-                                      onAddMeal: () => _showAddMealDialog(
-                                          context, state.user.uid),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _ActivityCard(
-                                      todayMinutes: todayMinutes,
-                                      todayCaloriesBurned: todayCaloriesBurned,
-                                      onAddActivity: () =>
-                                          _showAddActivityDialog(context),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SliverToBoxAdapter(
-                              child: Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Today's Log",
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge
-                                              ?.copyWith(
-                                                  fontWeight: FontWeight.bold),
-                                        ),
-                                        TextButton.icon(
-                                          icon: Icon(_selectedTab == 0
-                                              ? Icons.restaurant
-                                              : Icons.fitness_center),
-                                          label: Text(_selectedTab == 0
-                                              ? 'Add Meal'
-                                              : 'Add Activity'),
-                                          onPressed: () => _selectedTab == 0
-                                              ? _showAddMealDialog(
-                                                  context, state.user.uid)
-                                              : _showAddActivityDialog(context),
-                                        ),
-                                      ],
-                                    ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Today's Log",
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold),
+                                      ),
+                                      TextButton.icon(
+                                        icon: Icon(_selectedTab == 0
+                                            ? Icons.restaurant
+                                            : Icons.fitness_center),
+                                        label: Text(_selectedTab == 0
+                                            ? 'Add Meal'
+                                            : 'Add Activity'),
+                                        onPressed: () => _selectedTab == 0
+                                            ? _showAddMealDialog(
+                                                context, state.user.uid)
+                                            : _showAddActivityDialog(context),
+                                      ),
+                                    ],
                                   ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(25),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              _pageController.animateToPage(
-                                                0,
-                                                duration: const Duration(
-                                                    milliseconds: 300),
-                                                curve: Curves.easeInOut,
-                                              );
-                                            },
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 12),
-                                              decoration: BoxDecoration(
-                                                color: _selectedTab == 0
-                                                    ? Theme.of(context)
-                                                        .colorScheme
-                                                        .primary
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(25),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.restaurant,
-                                                    size: 20,
+                                ),
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            _pageController.animateToPage(
+                                              0,
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _selectedTab == 0
+                                                  ? Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(25),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.restaurant,
+                                                  size: 20,
+                                                  color: _selectedTab == 0
+                                                      ? Colors.white
+                                                      : Colors.grey,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Meals',
+                                                  style: TextStyle(
                                                     color: _selectedTab == 0
                                                         ? Colors.white
                                                         : Colors.grey,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Meals',
-                                                    style: TextStyle(
-                                                      color: _selectedTab == 0
-                                                          ? Colors.white
-                                                          : Colors.grey,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              _pageController.animateToPage(
-                                                1,
-                                                duration: const Duration(
-                                                    milliseconds: 300),
-                                                curve: Curves.easeInOut,
-                                              );
-                                            },
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 12),
-                                              decoration: BoxDecoration(
-                                                color: _selectedTab == 1
-                                                    ? Theme.of(context)
-                                                        .colorScheme
-                                                        .primary
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(25),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.fitness_center,
-                                                    size: 20,
+                                      ),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            _pageController.animateToPage(
+                                              1,
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _selectedTab == 1
+                                                  ? Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(25),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.fitness_center,
+                                                  size: 20,
+                                                  color: _selectedTab == 1
+                                                      ? Colors.white
+                                                      : Colors.grey,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Activities',
+                                                  style: TextStyle(
                                                     color: _selectedTab == 1
                                                         ? Colors.white
                                                         : Colors.grey,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Activities',
-                                                    style: TextStyle(
-                                                      color: _selectedTab == 1
-                                                          ? Colors.white
-                                                          : Colors.grey,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 16),
-                                  SizedBox(
-                                    height: 400,
-                                    child: PageView(
-                                      controller: _pageController,
-                                      onPageChanged: (index) {
-                                        setState(() {
-                                          _selectedTab = index;
-                                        });
-                                      },
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: meals.isEmpty
-                                              ? const Center(
-                                                  child: Text(
-                                                      'No meals logged today'))
-                                              : ListView.builder(
-                                                  padding: EdgeInsets.zero,
-                                                  itemCount: meals.length,
-                                                  itemBuilder:
-                                                      (context, index) =>
-                                                          _MealCard(
-                                                    meal: meals[index],
-                                                    onDelete: () async {
-                                                      try {
-                                                        await FirebaseFirestore
-                                                            .instance
-                                                            .collection(
-                                                                'meal_logs')
-                                                            .doc(
-                                                                meals[index].id)
-                                                            .delete();
-                                                        _showSuccess(context,
-                                                            'Meal deleted successfully');
-                                                      } catch (e) {
-                                                        _showError(context,
-                                                            'Error deleting meal: ${e.toString()}');
-                                                      }
-                                                    },
-                                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  height: 400,
+                                  child: PageView(
+                                    controller: _pageController,
+                                    onPageChanged: (index) {
+                                      setState(() {
+                                        _selectedTab = index;
+                                      });
+                                    },
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: meals.isEmpty
+                                            ? const Center(
+                                                child: Text(
+                                                    'No meals logged today'))
+                                            : ListView.builder(
+                                                padding: EdgeInsets.zero,
+                                                itemCount: meals.length,
+                                                itemBuilder: (context, index) =>
+                                                    _MealCard(
+                                                  meal: meals[index],
+                                                  onDelete: () async {
+                                                    try {
+                                                      await FirebaseFirestore
+                                                          .instance
+                                                          .collection(
+                                                              'meal_logs')
+                                                          .doc(meals[index].id)
+                                                          .delete();
+                                                      _showSuccess(context,
+                                                          'Meal deleted successfully');
+                                                    } catch (e) {
+                                                      _showError(context,
+                                                          'Error deleting meal: ${e.toString()}');
+                                                    }
+                                                  },
                                                 ),
+                                              ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: _ActivityList(
+                                          activities: activities,
+                                          onDelete: (id) async {
+                                            try {
+                                              await FirebaseFirestore.instance
+                                                  .collection('activity_logs')
+                                                  .doc(id)
+                                                  .delete();
+                                              _showSuccess(context,
+                                                  'Activity deleted successfully');
+                                            } catch (e) {
+                                              _showError(context,
+                                                  'Error deleting activity: ${e.toString()}');
+                                            }
+                                          },
                                         ),
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: _ActivityList(
-                                            activities: activities,
-                                            onDelete: (id) async {
-                                              try {
-                                                await FirebaseFirestore.instance
-                                                    .collection('activity_logs')
-                                                    .doc(id)
-                                                    .delete();
-                                                _showSuccess(context,
-                                                    'Activity deleted successfully');
-                                              } catch (e) {
-                                                _showError(context,
-                                                    'Error deleting activity: ${e.toString()}');
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
           floatingActionButton: Row(
             mainAxisAlignment: MainAxisAlignment.end,

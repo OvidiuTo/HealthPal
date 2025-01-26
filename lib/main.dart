@@ -9,6 +9,8 @@ import 'package:track_health/pages/home_page.dart';
 import 'package:track_health/pages/main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:track_health/theme/app_colors.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +63,11 @@ class MyApp extends StatelessWidget {
                 backgroundColor: AppColors.lightPrimary,
                 foregroundColor: Colors.white,
                 elevation: 0,
+                systemOverlayStyle: SystemUiOverlayStyle(
+                  statusBarColor: AppColors.lightPrimary,
+                  statusBarIconBrightness: Brightness.light,
+                  statusBarBrightness: Brightness.dark,
+                ),
               ),
               cardTheme: CardTheme(
                 color: Colors.white,
