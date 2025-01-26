@@ -9,6 +9,8 @@ import 'package:track_health/theme/app_colors.dart';
 import 'package:track_health/models/meal_type.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:track_health/pages/history_page.dart';
+import 'package:track_health/models/activity_log.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,6 +22,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _nameController = TextEditingController();
   final _caloriesController = TextEditingController();
+  final _activityNameController = TextEditingController();
+  final _activityMinutesController = TextEditingController();
+  final _activityCaloriesController = TextEditingController();
   MealType _selectedMealType = MealType.snack;
   final _speechToText = stt.SpeechToText();
   bool _isListening = false;
@@ -474,6 +479,157 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showAddActivityDialog(BuildContext context) {
+    _activityNameController.clear();
+    _activityMinutesController.clear();
+    _activityCaloriesController.clear();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Add Activity',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _activityNameController,
+              decoration: InputDecoration(
+                labelText: 'Activity Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: const Icon(Icons.fitness_center),
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _activityMinutesController,
+                    decoration: InputDecoration(
+                      labelText: 'Minutes',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.timer),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _activityCaloriesController,
+                    decoration: InputDecoration(
+                      labelText: 'Calories Burned',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.local_fire_department),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _addActivity(context),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Add Activity'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addActivity(BuildContext context) async {
+    if (_activityNameController.text.isEmpty ||
+        _activityMinutesController.text.isEmpty ||
+        _activityCaloriesController.text.isEmpty) {
+      _showError(context, 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      final minutes = int.parse(_activityMinutesController.text);
+      final calories = int.parse(_activityCaloriesController.text);
+
+      if (minutes <= 0 || calories <= 0) {
+        _showError(context, 'Please enter valid numbers');
+        return;
+      }
+
+      final now = DateTime.now();
+      final timestamp = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+        now.minute,
+        now.second,
+      ).toIso8601String();
+
+      final activityData = {
+        'userId': FirebaseAuth.instance.currentUser!.uid,
+        'name': _activityNameController.text.trim(),
+        'minutes': minutes,
+        'caloriesBurned': calories,
+        'timestamp': timestamp,
+      };
+
+      print('Adding activity: $activityData');
+
+      await FirebaseFirestore.instance
+          .collection('activity_logs')
+          .add(activityData);
+
+      if (mounted) {
+        Navigator.pop(context);
+        _showSuccess(context, 'Activity added successfully');
+      }
+    } catch (e) {
+      print('Error adding activity: $e');
+      _showError(context, 'Error adding activity: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
@@ -529,101 +685,169 @@ class _HomePageState extends State<HomePage> {
                       }
                     }
 
-                    return CustomScrollView(
-                      slivers: [
-                        SliverAppBar(
-                          floating: true,
-                          title: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Health Tracker'),
-                              // Text(
-                              //   state.user.email ?? '',
-                              //   style: Theme.of(context)
-                              //       .textTheme
-                              //       .bodySmall
-                              //       ?.copyWith(color: Colors.white70),
-                              // ),
-                            ],
-                          ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: _CalorieCard(
-                              todayCalories: todayCalories,
-                              goalCalories: user.dailyCalorieGoal,
-                              onAddMeal: () =>
-                                  _showAddMealDialog(context, state.user.uid),
+                    return StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('activity_logs')
+                          .where('userId', isEqualTo: state.user.uid)
+                          .where('timestamp',
+                              isGreaterThanOrEqualTo: DateTime(
+                                DateTime.now().year,
+                                DateTime.now().month,
+                                DateTime.now().day,
+                              ).toIso8601String())
+                          .where('timestamp',
+                              isLessThan: DateTime(
+                                DateTime.now().year,
+                                DateTime.now().month,
+                                DateTime.now().day + 1,
+                              ).toIso8601String())
+                          .orderBy('timestamp', descending: true)
+                          .snapshots(),
+                      builder: (context, activitySnapshot) {
+                        int todayMinutes = 0;
+                        int todayCaloriesBurned = 0;
+
+                        if (activitySnapshot.hasError) {
+                          print(
+                              'Activity snapshot error: ${activitySnapshot.error}');
+                        }
+
+                        if (activitySnapshot.hasData) {
+                          print(
+                              'Found ${activitySnapshot.data!.docs.length} activities');
+                          for (var doc in activitySnapshot.data!.docs) {
+                            final activity = ActivityLog.fromMap(
+                                doc.data() as Map<String, dynamic>, doc.id);
+                            print(
+                                'Activity: ${activity.name}, Minutes: ${activity.minutes}, Calories: ${activity.caloriesBurned}');
+                            todayMinutes += activity.minutes;
+                            todayCaloriesBurned += activity.caloriesBurned;
+                          }
+                          print(
+                              'Total minutes: $todayMinutes, Total calories burned: $todayCaloriesBurned');
+                        }
+
+                        return CustomScrollView(
+                          slivers: [
+                            SliverAppBar(
+                              floating: true,
+                              title: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Health Tracker'),
+                                  // Text(
+                                  //   state.user.email ?? '',
+                                  //   style: Theme.of(context)
+                                  //       .textTheme
+                                  //       .bodySmall
+                                  //       ?.copyWith(color: Colors.white70),
+                                  // ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          sliver: SliverToBoxAdapter(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Today's Meals",
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                TextButton.icon(
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add Meal'),
-                                  onPressed: () => _showAddMealDialog(
-                                      context, state.user.uid),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.all(16),
-                          sliver: meals.isEmpty
-                              ? const SliverToBoxAdapter(
-                                  child: Center(
-                                    child: Text('No meals logged today'),
-                                  ),
-                                )
-                              : SliverList(
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) => _MealCard(
-                                      meal: meals[index],
-                                      onDelete: () async {
-                                        try {
-                                          await FirebaseFirestore.instance
-                                              .collection('meal_logs')
-                                              .doc(meals[index].id)
-                                              .delete();
-                                          _showSuccess(context,
-                                              'Meal deleted successfully');
-                                        } catch (e) {
-                                          _showError(context,
-                                              'Error deleting meal: ${e.toString()}');
-                                        }
-                                      },
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    _CalorieCard(
+                                      todayCalories: todayCalories,
+                                      goalCalories: user.dailyCalorieGoal,
+                                      onAddMeal: () => _showAddMealDialog(
+                                          context, state.user.uid),
                                     ),
-                                    childCount: meals.length,
-                                  ),
+                                    const SizedBox(height: 16),
+                                    _ActivityCard(
+                                      todayMinutes: todayMinutes,
+                                      todayCaloriesBurned: todayCaloriesBurned,
+                                      onAddActivity: () =>
+                                          _showAddActivityDialog(context),
+                                    ),
+                                  ],
                                 ),
-                        ),
-                      ],
+                              ),
+                            ),
+                            SliverPadding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              sliver: SliverToBoxAdapter(
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Today's Meals",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.bold),
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Add Meal'),
+                                      onPressed: () => _showAddMealDialog(
+                                          context, state.user.uid),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.all(16),
+                              sliver: meals.isEmpty
+                                  ? const SliverToBoxAdapter(
+                                      child: Center(
+                                        child: Text('No meals logged today'),
+                                      ),
+                                    )
+                                  : SliverList(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) => _MealCard(
+                                          meal: meals[index],
+                                          onDelete: () async {
+                                            try {
+                                              await FirebaseFirestore.instance
+                                                  .collection('meal_logs')
+                                                  .doc(meals[index].id)
+                                                  .delete();
+                                              _showSuccess(context,
+                                                  'Meal deleted successfully');
+                                            } catch (e) {
+                                              _showError(context,
+                                                  'Error deleting meal: ${e.toString()}');
+                                            }
+                                          },
+                                        ),
+                                        childCount: meals.length,
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        );
+                      },
                     );
                   },
                 );
               },
             ),
           ),
-          floatingActionButton: _currentIndex == 0
-              ? FloatingActionButton(
-                  onPressed: () => _showAddMealDialog(context, state.user.uid),
-                  child: const Icon(Icons.add),
-                )
-              : null,
+          floatingActionButton: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FloatingActionButton(
+                heroTag: 'activity',
+                onPressed: () => _showAddActivityDialog(context),
+                child: const Icon(Icons.fitness_center),
+              ),
+              const SizedBox(width: 16),
+              FloatingActionButton(
+                heroTag: 'meal',
+                onPressed: () => _showAddMealDialog(context, state.user.uid),
+                child: const Icon(Icons.restaurant),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -634,6 +858,9 @@ class _HomePageState extends State<HomePage> {
     _speechToText.cancel();
     _nameController.dispose();
     _caloriesController.dispose();
+    _activityNameController.dispose();
+    _activityMinutesController.dispose();
+    _activityCaloriesController.dispose();
     super.dispose();
   }
 }
@@ -718,6 +945,114 @@ class _CalorieCard extends StatelessWidget {
                 backgroundColor: colorScheme.primary.withOpacity(0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(progressColor),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityCard extends StatelessWidget {
+  final int todayMinutes;
+  final int todayCaloriesBurned;
+  final VoidCallback onAddActivity;
+
+  const _ActivityCard({
+    required this.todayMinutes,
+    required this.todayCaloriesBurned,
+    required this.onAddActivity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today\'s Activities',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 16,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$todayMinutes min',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.local_fire_department,
+                                size: 16,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$todayCaloriesBurned kcal',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: onAddActivity,
+                  color: colorScheme.primary,
+                ),
+              ],
             ),
           ],
         ),
