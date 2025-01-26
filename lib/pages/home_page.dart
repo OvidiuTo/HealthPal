@@ -31,11 +31,14 @@ class _HomePageState extends State<HomePage> {
   bool _speechEnabled = false;
   String _currentField = '';
   int _currentIndex = 0;
+  int _selectedTab = 0;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
     _initSpeech();
+    _pageController = PageController(initialPage: _selectedTab);
   }
 
   Future<void> _initSpeech() async {
@@ -706,6 +709,7 @@ class _HomePageState extends State<HomePage> {
                       builder: (context, activitySnapshot) {
                         int todayMinutes = 0;
                         int todayCaloriesBurned = 0;
+                        final activities = <ActivityLog>[];
 
                         if (activitySnapshot.hasError) {
                           print(
@@ -722,6 +726,7 @@ class _HomePageState extends State<HomePage> {
                                 'Activity: ${activity.name}, Minutes: ${activity.minutes}, Calories: ${activity.caloriesBurned}');
                             todayMinutes += activity.minutes;
                             todayCaloriesBurned += activity.caloriesBurned;
+                            activities.add(activity);
                           }
                           print(
                               'Total minutes: $todayMinutes, Total calories burned: $todayCaloriesBurned');
@@ -767,61 +772,221 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                            SliverPadding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              sliver: SliverToBoxAdapter(
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "Today's Meals",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.add),
-                                      label: const Text('Add Meal'),
-                                      onPressed: () => _showAddMealDialog(
-                                          context, state.user.uid),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SliverPadding(
-                              padding: const EdgeInsets.all(16),
-                              sliver: meals.isEmpty
-                                  ? const SliverToBoxAdapter(
-                                      child: Center(
-                                        child: Text('No meals logged today'),
-                                      ),
-                                    )
-                                  : SliverList(
-                                      delegate: SliverChildBuilderDelegate(
-                                        (context, index) => _MealCard(
-                                          meal: meals[index],
-                                          onDelete: () async {
-                                            try {
-                                              await FirebaseFirestore.instance
-                                                  .collection('meal_logs')
-                                                  .doc(meals[index].id)
-                                                  .delete();
-                                              _showSuccess(context,
-                                                  'Meal deleted successfully');
-                                            } catch (e) {
-                                              _showError(context,
-                                                  'Error deleting meal: ${e.toString()}');
-                                            }
-                                          },
+                            SliverToBoxAdapter(
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "Today's Log",
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleLarge
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.bold),
                                         ),
-                                        childCount: meals.length,
-                                      ),
+                                        TextButton.icon(
+                                          icon: Icon(_selectedTab == 0
+                                              ? Icons.restaurant
+                                              : Icons.fitness_center),
+                                          label: Text(_selectedTab == 0
+                                              ? 'Add Meal'
+                                              : 'Add Activity'),
+                                          onPressed: () => _selectedTab == 0
+                                              ? _showAddMealDialog(
+                                                  context, state.user.uid)
+                                              : _showAddActivityDialog(context),
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(25),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              _pageController.animateToPage(
+                                                0,
+                                                duration: const Duration(
+                                                    milliseconds: 300),
+                                                curve: Curves.easeInOut,
+                                              );
+                                            },
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: _selectedTab == 0
+                                                    ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(25),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.restaurant,
+                                                    size: 20,
+                                                    color: _selectedTab == 0
+                                                        ? Colors.white
+                                                        : Colors.grey,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Meals',
+                                                    style: TextStyle(
+                                                      color: _selectedTab == 0
+                                                          ? Colors.white
+                                                          : Colors.grey,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              _pageController.animateToPage(
+                                                1,
+                                                duration: const Duration(
+                                                    milliseconds: 300),
+                                                curve: Curves.easeInOut,
+                                              );
+                                            },
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: _selectedTab == 1
+                                                    ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
+                                                    : Colors.transparent,
+                                                borderRadius:
+                                                    BorderRadius.circular(25),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.fitness_center,
+                                                    size: 20,
+                                                    color: _selectedTab == 1
+                                                        ? Colors.white
+                                                        : Colors.grey,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Activities',
+                                                    style: TextStyle(
+                                                      color: _selectedTab == 1
+                                                          ? Colors.white
+                                                          : Colors.grey,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    height: 400,
+                                    child: PageView(
+                                      controller: _pageController,
+                                      onPageChanged: (index) {
+                                        setState(() {
+                                          _selectedTab = index;
+                                        });
+                                      },
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: meals.isEmpty
+                                              ? const Center(
+                                                  child: Text(
+                                                      'No meals logged today'))
+                                              : ListView.builder(
+                                                  padding: EdgeInsets.zero,
+                                                  itemCount: meals.length,
+                                                  itemBuilder:
+                                                      (context, index) =>
+                                                          _MealCard(
+                                                    meal: meals[index],
+                                                    onDelete: () async {
+                                                      try {
+                                                        await FirebaseFirestore
+                                                            .instance
+                                                            .collection(
+                                                                'meal_logs')
+                                                            .doc(
+                                                                meals[index].id)
+                                                            .delete();
+                                                        _showSuccess(context,
+                                                            'Meal deleted successfully');
+                                                      } catch (e) {
+                                                        _showError(context,
+                                                            'Error deleting meal: ${e.toString()}');
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: _ActivityList(
+                                            activities: activities,
+                                            onDelete: (id) async {
+                                              try {
+                                                await FirebaseFirestore.instance
+                                                    .collection('activity_logs')
+                                                    .doc(id)
+                                                    .delete();
+                                                _showSuccess(context,
+                                                    'Activity deleted successfully');
+                                              } catch (e) {
+                                                _showError(context,
+                                                    'Error deleting activity: ${e.toString()}');
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         );
@@ -861,6 +1026,7 @@ class _HomePageState extends State<HomePage> {
     _activityNameController.dispose();
     _activityMinutesController.dispose();
     _activityCaloriesController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 }
@@ -1135,5 +1301,98 @@ class _MealCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ActivityList extends StatelessWidget {
+  final List<ActivityLog> activities;
+  final Function(String) onDelete;
+
+  const _ActivityList({
+    required this.activities,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return activities.isEmpty
+        ? const Center(child: Text('No activities logged today'))
+        : ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: activities.length,
+            itemBuilder: (context, index) {
+              final activity = activities[index];
+              return Dismissible(
+                key: Key(activity.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (_) => onDelete(activity.id),
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.fitness_center,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    title: Text(
+                      activity.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${activity.minutes} minutes',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(DateFormat('HH:mm').format(activity.timestamp)),
+                      ],
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${activity.caloriesBurned} kcal',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
   }
 }
