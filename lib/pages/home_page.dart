@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:track_health/theme/app_colors.dart';
 import 'package:track_health/models/meal_type.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:track_health/pages/history_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   bool _isListening = false;
   bool _speechEnabled = false;
   String _currentField = '';
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -535,13 +537,13 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('Health Tracker'),
-                              Text(
-                                state.user.email ?? '',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: Colors.white70),
-                              ),
+                              // Text(
+                              //   state.user.email ?? '',
+                              //   style: Theme.of(context)
+                              //       .textTheme
+                              //       .bodySmall
+                              //       ?.copyWith(color: Colors.white70),
+                              // ),
                             ],
                           ),
                         ),
@@ -616,10 +618,12 @@ class _HomePageState extends State<HomePage> {
               },
             ),
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () => _showAddMealDialog(context, state.user.uid),
-            child: const Icon(Icons.add),
-          ),
+          floatingActionButton: _currentIndex == 0
+              ? FloatingActionButton(
+                  onPressed: () => _showAddMealDialog(context, state.user.uid),
+                  child: const Icon(Icons.add),
+                )
+              : null,
         );
       },
     );
@@ -786,7 +790,7 @@ class _MealCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${meal.calories} cal',
+              '${meal.calories} kcal',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.bold,
