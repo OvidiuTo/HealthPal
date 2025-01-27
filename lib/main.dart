@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
       child: BlocBuilder<ThemeBloc, ThemeState>(
         builder: (context, themeState) {
           return MaterialApp(
-            title: 'Health Tracker',
+            title: 'HealthPal',
             theme: ThemeData(
               useMaterial3: true,
               colorScheme: ColorScheme.light(

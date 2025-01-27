@@ -633,6 +633,257 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _showEditMealDialog(BuildContext context, MealLog meal) {
+    _nameController.text = meal.name;
+    _caloriesController.text = meal.calories.toString();
+    _selectedMealType = meal.type;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: BoxDecoration(
+            color:
+                isDark ? AppColors.darkBackground : AppColors.lightBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            top: 16,
+            left: 16,
+            right: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Meal',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                controller: _nameController,
+                label: 'Meal Name',
+                icon: Icons.restaurant_menu,
+                isDark: isDark,
+                field: 'name',
+                onStateChange: () => setModalState(() {}),
+              ),
+              const SizedBox(height: 16),
+              _buildMealTypeField(isDark, setModalState),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _caloriesController,
+                label: 'Calories',
+                icon: Icons.local_fire_department,
+                isDark: isDark,
+                field: 'calories',
+                keyboardType: TextInputType.number,
+                onStateChange: () => setModalState(() {}),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => _updateMeal(context, meal.id),
+                  child: const Text('Update Meal'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateMeal(BuildContext context, String mealId) async {
+    if (_nameController.text.isEmpty || _caloriesController.text.isEmpty) {
+      _showError(context, 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      final calories = int.parse(_caloriesController.text);
+      if (calories <= 0) {
+        _showError(context, 'Please enter a valid calorie amount');
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('meal_logs')
+          .doc(mealId)
+          .update({
+        'name': _nameController.text.trim(),
+        'calories': calories,
+        'type': _selectedMealType.name,
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        _showSuccess(context, 'Meal updated successfully');
+      }
+    } catch (e) {
+      _showError(context, 'Error updating meal: ${e.toString()}');
+    }
+  }
+
+  void _showEditActivityDialog(BuildContext context, ActivityLog activity) {
+    _activityNameController.text = activity.name;
+    _activityMinutesController.text = activity.minutes.toString();
+    _activityCaloriesController.text = activity.caloriesBurned.toString();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Edit Activity',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _activityNameController,
+              decoration: InputDecoration(
+                labelText: 'Activity Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: const Icon(Icons.fitness_center),
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _activityMinutesController,
+                    decoration: InputDecoration(
+                      labelText: 'Minutes',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.timer),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _activityCaloriesController,
+                    decoration: InputDecoration(
+                      labelText: 'Calories Burned',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.local_fire_department),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _updateActivity(context, activity.id),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Update Activity'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateActivity(BuildContext context, String activityId) async {
+    if (_activityNameController.text.isEmpty ||
+        _activityMinutesController.text.isEmpty ||
+        _activityCaloriesController.text.isEmpty) {
+      _showError(context, 'Please fill in all fields');
+      return;
+    }
+
+    try {
+      final minutes = int.parse(_activityMinutesController.text);
+      final calories = int.parse(_activityCaloriesController.text);
+
+      if (minutes <= 0 || calories <= 0) {
+        _showError(context, 'Please enter valid numbers');
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('activity_logs')
+          .doc(activityId)
+          .update({
+        'name': _activityNameController.text.trim(),
+        'minutes': minutes,
+        'caloriesBurned': calories,
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        _showSuccess(context, 'Activity updated successfully');
+      }
+    } catch (e) {
+      _showError(context, 'Error updating activity: ${e.toString()}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthBloc, AuthState>(
@@ -953,6 +1204,10 @@ class _HomePageState extends State<HomePage> {
                                                           'Error deleting meal: ${e.toString()}');
                                                     }
                                                   },
+                                                  onEdit: () =>
+                                                      _showEditMealDialog(
+                                                          context,
+                                                          meals[index]),
                                                 ),
                                               ),
                                       ),
@@ -973,6 +1228,9 @@ class _HomePageState extends State<HomePage> {
                                                   'Error deleting activity: ${e.toString()}');
                                             }
                                           },
+                                          onEdit: (activity) =>
+                                              _showEditActivityDialog(
+                                                  context, activity),
                                         ),
                                       ),
                                     ],
@@ -1222,10 +1480,12 @@ class _ActivityCard extends StatelessWidget {
 class _MealCard extends StatelessWidget {
   final MealLog meal;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const _MealCard({
     required this.meal,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -1276,19 +1536,30 @@ class _MealCard extends StatelessWidget {
               Text(DateFormat('HH:mm').format(meal.timestamp)),
             ],
           ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${meal.calories} kcal',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${meal.calories} kcal',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: onEdit,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
           ),
         ),
       ),
@@ -1299,10 +1570,12 @@ class _MealCard extends StatelessWidget {
 class _ActivityList extends StatelessWidget {
   final List<ActivityLog> activities;
   final Function(String) onDelete;
+  final Function(ActivityLog) onEdit;
 
   const _ActivityList({
     required this.activities,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -1366,20 +1639,30 @@ class _ActivityList extends StatelessWidget {
                         Text(DateFormat('HH:mm').format(activity.timestamp)),
                       ],
                     ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${activity.caloriesBurned} kcal',
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${activity.caloriesBurned} kcal',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => onEdit(activity),
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ],
                     ),
                   ),
                 ),
