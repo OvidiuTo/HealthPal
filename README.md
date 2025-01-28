@@ -26,4 +26,4 @@ This Flutter app is designed to help users track their meals and physical activi
 ## Screenshots
 
 ![design1](https://github.com/user-attachments/assets/7709763e-4240-411a-852c-bbd1e59b1235)
-![design](https://github.com/user-attachments/assets/287196bb-b188-45ed-9963-e41fb944f323)
+![design2](https://github.com/user-attachments/assets/73898f99-ac6b-40fe-a03e-6d33217671da)
