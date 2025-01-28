@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:track_health/models/activity_log.dart';
 import 'package:track_health/models/meal_log.dart';
-import 'package:track_health/theme/app_colors.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});

@@ -5,11 +5,9 @@ import 'package:track_health/blocs/auth/auth_bloc.dart';
 import 'package:track_health/blocs/theme/theme_bloc.dart';
 import 'package:track_health/firebase_options.dart';
 import 'package:track_health/pages/auth_page.dart';
-import 'package:track_health/pages/home_page.dart';
 import 'package:track_health/pages/main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:track_health/theme/app_colors.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 void main() async {

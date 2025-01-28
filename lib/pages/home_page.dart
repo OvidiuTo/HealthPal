@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'package:track_health/theme/app_colors.dart';
 import 'package:track_health/models/meal_type.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:track_health/pages/history_page.dart';
 import 'package:track_health/models/activity_log.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -30,7 +29,6 @@ class _HomePageState extends State<HomePage> {
   bool _isListening = false;
   bool _speechEnabled = false;
   String _currentField = '';
-  int _currentIndex = 0;
   int _selectedTab = 0;
   late PageController _pageController;
 
